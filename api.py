@@ -1,6 +1,8 @@
 import flask
 from uuid import uuid4
 from blockchain import Blockchain
+import requests
+
 
 # Instantiate Node
 app = flask.Flask(__name__)
@@ -45,6 +47,7 @@ def mine():
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
     values = flask.request.get_json()
+    print(values)
 
     # Check that the required fields are in the POST'ed data
     required = ['sender', 'recipient', 'amount']
@@ -69,6 +72,42 @@ def full_chain():
         'length': len(blockchain.chain)
     }
     return flask.jsonify(response), 200
+
+
+@app.route('/nodes/register', methods=['POST'])
+def register_nodes():
+    print(flask.request.json)
+    values = flask.request.get_json()
+    nodes = values.get('nodes')
+    if nodes is None:
+        return "Error: Please supply a valid list of nodes", 400
+
+    for node in nodes:
+        blockchain.register_node(node)
+
+    response = {
+        'message': 'New nodes have been added',
+        'total_nodes': list(blockchain.nodes)
+    }
+    return flask.jsonify(response), 201
+
+
+@app.route('/nodes/resolve', methods=['GET'])
+def consensus():
+    replaced = blockchain.resolve_conflicts()
+
+    if replaced:
+        response = {
+            'message': 'Our chain was replaced',
+            'new_chain': blockchain.chain
+        }
+    else:
+        response = {
+            'message': 'Our chain is authoritative',
+            'chain': blockchain.chain
+        }
+    return flask.jsonify(response), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
